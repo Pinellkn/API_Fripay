@@ -8,7 +8,7 @@
     "repositories": [
         {
             "type": "path",
-            "url": "C:/laragon/www/API_Fripay/packages/fripay-common"
+            "url": "C:/Users/Pinel/API_Fripay/packages/fripay-common"
         }
     ],
     "require": {

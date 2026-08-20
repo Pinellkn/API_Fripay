@@ -8,6 +8,7 @@ use App\Models\TransactionStatusHistory;
 use App\Models\WebhookEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
@@ -27,6 +28,10 @@ class WebhookController extends Controller
         ]);
 
         if (!$webhookEvent->signature_valid) {
+            Log::warning("Invalid webhook signature from provider: {$provider}", [
+                'ip' => $request->ip(),
+            ]);
+
             return response()->json([
                 'type' => 'INVALID_SIGNATURE',
                 'title' => 'Signature invalide',
@@ -53,19 +58,40 @@ class WebhookController extends Controller
      * POST /api/v1/webhooks/mtn
      *
      * Callback natif MTN MoMo (produit Disbursements). MTN n'envoie pas de
-     * signature HMAC : la notification est enregistree puis appliquee.
+     * signature HMAC : on vérifie l'IP source contre la whitelist configurée.
      * Payload : { externalId, financialTransactionId, status, amount, ... }
      */
     public function handleMtn(Request $request): JsonResponse
     {
+        // Vérification IP source (MTN n'utilise pas de signature HMAC)
+        $clientIp = $request->ip();
+        $allowedIps = config('services.mtn.allowed_ips', []);
+
+        $signatureValid = empty($allowedIps) || in_array($clientIp, $allowedIps, true);
+
         $payload = $request->all();
 
         $webhookEvent = WebhookEvent::create([
             'provider'        => 'mtn',
-            'signature_valid' => true, // MTN ne signe pas ses callbacks
+            'signature_valid' => $signatureValid,
             'payload'         => $payload,
             'processed'       => false,
         ]);
+
+        if (!$signatureValid) {
+            Log::warning('MTN webhook from unauthorized IP', [
+                'ip' => $clientIp,
+                'allowed' => $allowedIps,
+            ]);
+
+            return response()->json([
+                'type' => 'UNAUTHORIZED_SOURCE',
+                'title' => 'Source non autorisée',
+                'status' => 403,
+                'detail' => 'IP source non autorisée pour les webhooks MTN.',
+                'request_id' => $request->header('X-Request-Id', ''),
+            ], 403);
+        }
 
         $this->processMtnWebhook($webhookEvent);
 
@@ -89,6 +115,18 @@ class WebhookController extends Controller
 
         if (! $transaction) {
             $event->update(['processing_error' => 'Transaction not found: ' . $externalId]);
+            return;
+        }
+
+        // Anti-rejeu : verifier si un webhook MTN pour cette transaction a deja ete traite
+        $alreadyProcessed = WebhookEvent::where('provider', 'mtn')
+            ->where('processed', true)
+            ->where('id', '!=', $event->id)
+            ->whereJsonContains('payload', ['externalId' => $externalId])
+            ->exists();
+
+        if ($alreadyProcessed) {
+            $event->update(['processing_error' => 'Duplicate webhook ignored (already processed)']);
             return;
         }
 
@@ -156,6 +194,20 @@ class WebhookController extends Controller
 
         if (!$transaction) {
             $event->update(['processing_error' => 'Transaction not found']);
+            return;
+        }
+
+        // Anti-rejeu : verifier si un webhook pour cette transaction a deja ete traite
+        $alreadyProcessed = WebhookEvent::where('processed', true)
+            ->where('id', '!=', $event->id)
+            ->where(function ($q) use ($externalRef) {
+                $q->whereJsonContains('payload', ['transaction_id' => $externalRef])
+                  ->orWhereJsonContains('payload', ['reference' => $externalRef]);
+            })
+            ->exists();
+
+        if ($alreadyProcessed) {
+            $event->update(['processing_error' => 'Duplicate webhook ignored (already processed)']);
             return;
         }
 

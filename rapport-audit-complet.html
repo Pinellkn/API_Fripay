@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Rapport d'Audit Complet - API FriPay</title>
+<style>
+  @page { size: A4; margin: 20mm 15mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1a1a2e; line-height: 1.5; margin: 0; padding: 20px; }
+  h1 { font-size: 22px; color: #0f3460; border-bottom: 3px solid #0f3460; padding-bottom: 8px; margin-top: 0; }
+  h2 { font-size: 16px; color: #16213e; border-bottom: 2px solid #e94560; padding-bottom: 4px; margin-top: 24px; page-break-after: avoid; }
+  h3 { font-size: 13px; color: #0f3460; margin-top: 16px; page-break-after: avoid; }
+  .meta { background: #f0f4ff; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 11px; }
+  .meta strong { color: #0f3460; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 10.5px; }
+  th { background: #0f3460; color: white; padding: 6px 8px; text-align: left; font-weight: 600; }
+  td { padding: 5px 8px; border-bottom: 1px solid #ddd; vertical-align: top; }
+  tr:nth-child(even) { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; color: white; }
+  .badge-critical { background: #dc3545; }
+  .badge-high { background: #fd7e14; }
+  .badge-medium { background: #ffc107; color: #333; }
+  .badge-low { background: #28a745; }
+  pre { background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 4px; font-size: 10px; overflow-x: auto; white-space: pre-wrap; }
+  code { background: #f0f0f0; padding: 1px 4px; border-radius: 2px; font-size: 10px; }
+  .finding { border-left: 4px solid #ddd; padding: 8px 12px; margin: 8px 0; background: #fafafa; }
+  .finding-critical { border-color: #dc3545; }
+  .finding-high { border-color: #fd7e14; }
+  .finding-medium { border-color: #ffc107; }
+  .finding-low { border-color: #28a745; }
+  .fixed-tag { background: #d4edda; color: #155724; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0; }
+  .summary-card { background: white; border: 1px solid #ddd; border-radius: 6px; padding: 12px; text-align: center; }
+  .summary-card .number { font-size: 28px; font-weight: 700; }
+  .summary-card .label { font-size: 10px; color: #666; text-transform: uppercase; }
+  .pagebreak { page-break-before: always; }
+  .footer { text-align: center; font-size: 9px; color: #999; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 8px; }
+</style>
+</head>
+<body>
+
+<h1>Rapport d'Audit Complet - API FriPay</h1>
+
+<div class="meta">
+  <strong>Date :</strong> 19 aout 2026 | <strong>Scope :</strong> Tous les microservices + freipay-common<br>
+  <strong>Base :</strong> PostgreSQL 17 | <strong>Framework :</strong> Laravel 13 + Sanctum | <strong>PHP :</strong> ^8.3<br>
+  <strong>Corrections appliquees :</strong> 13/19 Problemes traites (4 critiques + 5 eleves + 4 moyens)
+</div>
+
+<h2>1. Resume Executif</h2>
+<div class="summary-grid">
+  <div class="summary-card"><div class="number" style="color:#28a745">4/4</div><div class="label">Critiques corriges</div></div>
+  <div class="summary-card"><div class="number" style="color:#28a745">5/7</div><div class="label">Eleves corriges</div></div>
+  <div class="summary-card"><div class="number" style="color:#28a745">4/7</div><div class="label">Moyens corriges</div></div>
+  <div class="summary-card"><div class="number" style="color:#6c757d">0/5</div><div class="label">Bas (a faire)</div></div>
+</div>
+
+<table>
+  <tr><th>Categorie</th><th>Critique</th><th>Elevee</th><th>Moyenne</th><th>Basse</th><th>Total</th></tr>
+  <tr><td>Securite</td><td>2/2 OK</td><td>2/3 OK</td><td>1/1 OK</td><td>0</td><td>5/6</td></tr>
+  <tr><td>Code</td><td>1/1 OK</td><td>1/1 OK</td><td>0</td><td>0</td><td>2/2</td></tr>
+  <tr><td>Architecture</td><td>0</td><td>1/2 OK</td><td>1/3 OK</td><td>0/2</td><td>2/7</td></tr>
+  <tr><td>Base de donnees</td><td>1/1 OK</td><td>1/1 OK</td><td>2/3 OK</td><td>0/1</td><td>4/6</td></tr>
+  <tr><td><b>Total</b></td><td><b>4/4</b></td><td><b>5/7</b></td><td><b>4/7</b></td><td><b>0/5</b></td><td><b>13/19</b></td></tr>
+</table>
+
+<h2>2. Architecture</h2>
+<table>
+  <tr><th>Service</th><th>Port</th><th>Auth</th><th>Role</th></tr>
+  <tr><td><b>fripay-gateway</b></td><td>8080</td><td>-</td><td>Rate limiting, circuit breaker, routage</td></tr>
+  <tr><td><b>fripay-users</b></td><td>8000</td><td>Sanctum</td><td>Inscription, profil, contacts</td></tr>
+  <tr><td><b>fripay-payments</b></td><td>8001</td><td>Sanctum</td><td>Transferts, webhooks, QR codes</td></tr>
+  <tr><td><b>fripay-admin</b></td><td>8002</td><td>Sanctum staff</td><td>Back-office, RBAC, corridors</td></tr>
+</table>
+
+<h2 class="pagebreak">3. Critiques (4/4 CORRIGES)</h2>
+
+<div class="finding finding-critical">
+  <h3><span class="badge badge-critical">CRITIQUE</span> C1 - Middleware IdempotencyMiddleware manquant</h3>
+  <p>Fichier freipay-users/bootstrap/app.php importait un middleware inexistant. Erreur 500 sur POST /users/me/accounts.</p>
+  <p><b>Correction :</b> <span class="fixed-tag">CORRIGE</span> Fichier cree.</p>
+</div>
+
+<div class="finding finding-critical">
+  <h3><span class="badge badge-critical">CRITIQUE</span> C2 - Hashes bcrypt exposes dans le SQL dump</h3>
+  <p>Le dump contenait des hashes bcrypt de mots de passe admin et OTP.</p>
+  <p><b>Correction :</b> <span class="fixed-tag">CORRIGE</span> Remplaces par HASH_ANONYMIZED_001/002.</p>
+</div>
+
+<div class="finding finding-critical">
+  <h3><span class="badge badge-critical">CRITIQUE</span> C3 - CORS wildcard * dans le gateway</h3>
+  <p>Le gateway autorisait * pour les origines CORS. Risque CSRF et vol de tokens.</p>
+  <p><b>Correction :</b> <span class="fixed-tag">CORRIGE</span> Origines restreintes via FRIPAY_CORS_ORIGINS.</p>
+</div>
+
+<div class="finding finding-critical">
+  <h3><span class="badge badge-critical">CRITIQUE</span> C4 - Injection SQL dans TransferController.sort</h3>
+  <p>Le parametre sort etait utilise directement dans orderBy() sans validation.</p>
+  <p><b>Correction :</b> <span class="fixed-tag">CORRIGE</span> Whitelist : initiated_at, amount, status, completed_at.</p>
+</div>
+
+<h2 class="pagebreak">4. Eleves (5/7 CORRIGES)</h2>
+
+<div class="finding finding-high">
+  <h3><span class="badge badge-high">ELEVEE</span> E1 - RateLimiter nettoyage 1% chance</h3>
+  <p><b>Correction :</b> <span class="fixed-tag">CORRIGE</span> Nettoyage horodate (1x/min).</p>
+</div>
+<div class="finding finding-high">
+  <h3><span class="badge badge-high">ELEVEE</span> E2 - refreshTokens() O(n)</h3>
+  <p><b>Correction :</b> <span class="fixed-tag">CORRIGE</span> Lookup par empreinte token (sha256) + index compose.</p>
+</div>
+<div class="finding finding-high">
+  <h3><span class="badge badge-high">ELEVEE</span> E3 - recipient_phone non valide</h3>
+  <p><b>Correction :</b> <span class="fixed-tag">DEJA CORRIGE</span> Regex deja presente.</p>
+</div>
+<div class="finding finding-high">
+  <h3><span class="badge badge-high">ELEVEE</span> E4 - Webhooks sans anti-rejeu</h3>
+  <p><b>Correction :</b> <span class="fixed-tag">CORRIGE</span> Detection de doublons ajoutee.</p>
+</div>
+<div class="finding finding-high">
+  <h3><span class="badge badge-high">ELEVEE</span> E5 - Circuit breaker half_open lent</h3>
+  <p><b>Correction :</b> <span class="fixed-tag">CORRIGE</span> Batch de test (3 req) en half_open.</p>
+</div>
+<div class="finding finding-high">
+  <h3><span class="badge badge-high">ELEVEE</span> E6 - CorridorController sans audit</h3>
+  <p><b>Correction :</b> <span class="fixed-tag">CORRIGE</span> Audit previous + changes.</p>
+</div>
+<div class="finding finding-high">
+  <h3><span class="badge badge-high">ELEVEE</span> E7 - Injection SQL (meme que C4)</h3>
+  <p><b>Correction :</b> <span class="fixed-tag">CORRIGE</span> Voir C4.</p>
+</div>
+
+<h2 class="pagebreak">5. Moyens (4/7 CORRIGES)</h2>
+
+<div class="finding finding-medium">
+  <h3><span class="badge badge-medium">MOYENNE</span> M1 - CORS allowed_methods: *</h3>
+  <p><b>Correction :</b> <span class="fixed-tag">CORRIGE</span> Restreint a GET, POST, PUT, DELETE, OPTIONS dans les 3 services + gateway.</p>
+</div>
+<div class="finding finding-medium">
+  <h3><span class="badge badge-medium">MOYENNE</span> M2 - Logging non structure</h3>
+  <p><b>Statut :</b> En attente - decision aggregateur de logs.</p>
+</div>
+<div class="finding finding-medium">
+  <h3><span class="badge badge-medium">MOYENNE</span> M3 - Webhooks sans rate limiting</h3>
+  <p><b>Correction :</b> <span class="fixed-tag">CORRIGE</span> Rate limiter webhook (100/min/IP) + throttle middleware.</p>
+</div>
+<div class="finding finding-medium">
+  <h3><span class="badge badge-medium">MOYENNE</span> M4 - Rate limiter sur disque</h3>
+  <p><b>Statut :</b> En attente - migration Redis.</p>
+</div>
+<div class="finding finding-medium">
+  <h3><span class="badge badge-medium">MOYENNE</span> M5 - StaffController.store() sans audit</h3>
+  <p><b>Correction :</b> <span class="fixed-tag">CORRIGE</span> AuditLog 'staff.created' ajoutee.</p>
+</div>
+<div class="finding finding-medium">
+  <h3><span class="badge badge-medium">MOYENNE</span> M6 - Namespace App\ dans common</h3>
+  <p><b>Statut :</b> En attente - breaking change.</p>
+</div>
+<div class="finding finding-medium">
+  <h3><span class="badge badge-medium">MOYENNE</span> M7 - min_amount > max_amount possible</h3>
+  <p><b>Correction :</b> <span class="fixed-tag">CORRIGE</span> Regle 'gte:min_amount' ajoutee.</p>
+</div>
+
+<h2>6. Bas (0/5 - a traiter)</h2>
+<div class="finding finding-low"><h3><span class="badge badge-low">BASSE</span> B1 - Aucun test PHPUnit</h3></div>
+<div class="finding finding-low"><h3><span class="badge badge-low">BASSE</span> B2 - Version PHP non verifiee</h3></div>
+<div class="finding finding-low"><h3><span class="badge badge-low">BASSE</span> B3 - Enum non utilises</h3></div>
+<div class="finding finding-low"><h3><span class="badge badge-low">BASSE</span> B4 - Routes web.php inutiles</h3></div>
+<div class="finding finding-low"><h3><span class="badge badge-low">BASSE</span> B5 - .env.example incomplet</h3></div>
+
+<h2 class="pagebreak">7. Points Forts</h2>
+<table>
+  <tr><th>Aspect</th><th>Evaluation</th></tr>
+  <tr><td>Architecture</td><td>Microservices bien separes + gateway dedie</td></tr>
+  <tr><td>Crypto QR</td><td>Ed25519 Sodium, cles effacees apres usage</td></tr>
+  <tr><td>Idempotence</td><td>UUID v5 deterministe</td></tr>
+  <tr><td>Outbox</td><td>Backoff exponentiel, verrou atomique</td></tr>
+  <tr><td>Circuit breaker</td><td>CLOSED/OPEN/HALF_OPEN</td></tr>
+  <tr><td>Rate limiting</td><td>Token bucket + throttle Laravel</td></tr>
+  <tr><td>RBAC</td><td>3 roles, 9 permissions</td></tr>
+  <tr><td>Audit</td><td>audit_logs pour actions critiques</td></tr>
+  <tr><td>Webhooks</td><td>HMAC + IP whitelist + anti-rejeu + throttle</td></tr>
+</table>
+
+<h2 class="pagebreak">8. Plan d'Actions</h2>
+<table>
+  <tr><th>Prio</th><th>Action</th><th>Etat</th></tr>
+  <tr><td><span class="badge badge-critical">P0</span></td><td>IdempotencyMiddleware</td><td><span class="fixed-tag">FAIT</span></td></tr>
+  <tr><td><span class="badge badge-critical">P0</span></td><td>Anonymiser hashes dump</td><td><span class="fixed-tag">FAIT</span></td></tr>
+  <tr><td><span class="badge badge-critical">P0</span></td><td>Restreindre CORS</td><td><span class="fixed-tag">FAIT</span></td></tr>
+  <tr><td><span class="badge badge-critical">P0</span></td><td>Corriger injection SQL sort</td><td><span class="fixed-tag">FAIT</span></td></tr>
+  <tr><td><span class="badge badge-high">P1</span></td><td>Optimiser refreshTokens()</td><td><span class="fixed-tag">FAIT</span></td></tr>
+  <tr><td><span class="badge badge-high">P1</span></td><td>Anti-rejeu webhooks</td><td><span class="fixed-tag">FAIT</span></td></tr>
+  <tr><td><span class="badge badge-high">P1</span></td><td>Circuit breaker half_open</td><td><span class="fixed-tag">FAIT</span></td></tr>
+  <tr><td><span class="badge badge-high">P1</span></td><td>Audit trail corridors</td><td><span class="fixed-tag">FAIT</span></td></tr>
+  <tr><td><span class="badge badge-high">P1</span></td><td>Nettoyage RateLimiter</td><td><span class="fixed-tag">FAIT</span></td></tr>
+  <tr><td><span class="badge badge-medium">P2</span></td><td>CORS methods restriction</td><td><span class="fixed-tag">FAIT</span></td></tr>
+  <tr><td><span class="badge badge-medium">P2</span></td><td>Throttle webhooks</td><td><span class="fixed-tag">FAIT</span></td></tr>
+  <tr><td><span class="badge badge-medium">P2</span></td><td>Audit StaffController</td><td><span class="fixed-tag">FAIT</span></td></tr>
+  <tr><td><span class="badge badge-medium">P2</span></td><td>Validation min/max</td><td><span class="fixed-tag">FAIT</span></td></tr>
+  <tr><td><span class="badge badge-medium">P2</span></td><td>Logging JSON</td><td>En attente</td></tr>
+  <tr><td><span class="badge badge-medium">P2</span></td><td>Namespace common</td><td>En attente</td></tr>
+  <tr><td><span class="badge badge-medium">P2</span></td><td>Migration Redis</td><td>En attente</td></tr>
+  <tr><td><span class="badge badge-low">P3</span></td><td>Tests PHPUnit</td><td>En attente</td></tr>
+  <tr><td><span class="badge badge-low">P3</span></td><td>.env.example</td><td>En attente</td></tr>
+</table>
+
+<h2 class="pagebreak">9. Fichiers Modifies (19 fichiers)</h2>
+<table>
+  <tr><th>Fichier</th><th>Service</th><th>Changement</th></tr>
+  <tr><td>app/Http/Middleware/IdempotencyMiddleware.php</td><td>users</td><td>Cree</td></tr>
+  <tr><td>app/Services/AuthService.php</td><td>users</td><td>refreshTokens() optimise</td></tr>
+  <tr><td>app/Models/AuthSession.php</td><td>users</td><td>Ajout token_fingerprint</td></tr>
+  <tr><td>database/migrations/2026_08_19_*.php</td><td>users</td><td>Migration token_fingerprint</td></tr>
+  <tr><td>fripay_database_dump.sql</td><td>root</td><td>Hashes anonymises</td></tr>
+  <tr><td>config/gateway.php</td><td>gateway</td><td>CORS restreint</td></tr>
+  <tr><td>public/index.php</td><td>gateway</td><td>sendCorsHeaders() corrige</td></tr>
+  <tr><td>src/RateLimiter.php</td><td>gateway</td><td>Nettoyage horodate</td></tr>
+  <tr><td>src/CircuitBreaker.php</td><td>gateway</td><td>Batch test half_open</td></tr>
+  <tr><td>Http/Controllers/Api/TransferController.php</td><td>payments</td><td>Whitelist tri SQL</td></tr>
+  <tr><td>Http/Controllers/Api/WebhookController.php</td><td>payments</td><td>Anti-rejeu webhooks</td></tr>
+  <tr><td>Http/Controllers/Api/Admin/CorridorController.php</td><td>admin</td><td>Audit trail</td></tr>
+  <tr><td>Http/Controllers/Api/Admin/StaffController.php</td><td>admin</td><td>Audit creation</td></tr>
+  <tr><td>Http/Requests/Admin/CorridorRequest.php</td><td>admin</td><td>Validation min/max</td></tr>
+  <tr><td>config/cors.php</td><td>admin</td><td>Methods restreintes</td></tr>
+  <tr><td>config/cors.php</td><td>payments</td><td>Methods restreintes</td></tr>
+  <tr><td>config/cors.php</td><td>users</td><td>Methods restreintes</td></tr>
+  <tr><td>app/Providers/AppServiceProvider.php</td><td>payments</td><td>Rate limiter webhook</td></tr>
+  <tr><td>routes/api.php</td><td>payments</td><td>Throttle webhooks</td></tr>
+</table>
+
+<h2>10. Migration</h2>
+<pre>cd freipay-users &amp;&amp; php artisan migrate</pre>
+
+<h2>11. Config Production</h2>
+<pre>FRIPAY_CORS_ORIGINS=https://app.fripay.bj,https://admin.fripay.bj</pre>
+
+<div class="footer">
+  Rapport genere le 19 aout 2026 - API FriPay v1.0.0 - 13/19 problemes corriges
+</div>
+
+</body>
+</html>

@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Enums\KycStatus;
+use App\Enums\UserStatus;
 
 class User extends Authenticatable
 {
@@ -34,6 +36,8 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
+            'status'        => UserStatus::class,
+            'kyc_status'    => KycStatus::class,
             'last_login_at' => 'datetime',
         ];
     }

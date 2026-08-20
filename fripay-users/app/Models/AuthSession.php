@@ -11,7 +11,7 @@ class AuthSession extends Model
     use HasFactory, HasUuids;
 
     protected $fillable = [
-        'user_id', 'refresh_token_hash', 'device_info', 'ip_address', 'revoked', 'expires_at',
+        'user_id', 'refresh_token_hash', 'token_fingerprint', 'device_info', 'ip_address', 'revoked', 'expires_at',
     ];
 
     protected function casts(): array

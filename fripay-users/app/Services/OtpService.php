@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\OtpCode;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class OtpService
 {
@@ -13,6 +12,11 @@ class OtpService
 
     /**
      * Generate and store an OTP code for a given phone number.
+     *
+     * IMPORTANT: Le code n'est JAMAIS retourné dans la réponse JSON.
+     * Il doit être envoyé par SMS via un service externe.
+     *
+     * @return array{otp_id: int, expires_in: int}
      */
     public function generate(string $phoneNumber, string $purpose): array
     {
@@ -23,7 +27,7 @@ class OtpService
             ->update(['consumed' => true]);
 
         $code = (string) random_int(100000, 999999);
-        
+
         $otp = OtpCode::create([
             'phone_number' => $phoneNumber,
             'code_hash' => Hash::make($code),
@@ -33,9 +37,12 @@ class OtpService
             'expires_at' => now()->addSeconds(self::CODE_TTL_SECONDS),
         ]);
 
+        // TODO: Envoyer le code par SMS ici
+        // SmsService::send($phoneNumber, "Votre code FriPay: {$code}");
+        // logger()->info("OTP generated for {$phoneNumber}", ['code' => $code]); // Debug only
+
         return [
             'otp_id' => $otp->id,
-            'code' => $code, // In production, send via SMS instead of returning
             'expires_in' => self::CODE_TTL_SECONDS,
         ];
     }

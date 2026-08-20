@@ -40,6 +40,7 @@ class AuthController extends Controller
             'last_name' => $data['last_name'] ?? null,
         ]);
 
+        // OTP envoyé par SMS uniquement — jamais retourné dans la réponse
         $otp = $this->otpService->generate($phoneNumber, 'registration');
 
         return response()->json([

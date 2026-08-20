@@ -126,3 +126,46 @@ Le service Paiements **accepte et enregistre un transfert même si le connecteur
 - Un **rejet métier 4xx** reste un échec immédiat (`failed`) ; seul un webhook du réseau peut finaliser la transaction (`succeeded`/`failed`).
 
 Migration nécessaire : `cd fripay-payments && php artisan migrate`
+
+
+## ⚠️ Ce qui reste à faire (suite audit API QR / offline)
+
+Statut au 20/08/2026 — audit du module QR/offline (`QrCryptoService`, `OfflineQrController`,
+connecteurs réseaux) : la quasi-totalité des points de l'audit est corrigée et vérifiée
+(connecteurs, double dépense, middleware d'idempotence, rate limiting, locking, HMAC, CORS,
+validation téléphone, logs, purge, CDN). Il reste 2 chantiers réels à finaliser.
+
+### 🔴 B1 — Tests PHPUnit manquants (priorité, ~4h estimées)
+
+Seul `tests/OfflineQrMerchantBlockTest.php` existe (un seul cas : blocage des QR marchands
+dans le flux P2P). Il manque :
+
+- **`QrCryptoService`** : génération de paires de clés, signature/vérification valide,
+  rejet d'une signature falsifiée, rejet d'un payload expiré/altéré.
+- **`OfflineQrController`** : `generate` (succès + limites de montant/durée), `verify`,
+  `receive` (y compris double réception simultanée), `redeem`, `transfer`, `revoke`,
+  `status` (accès refusé à un tiers).
+- **Connecteurs** (`MoovMoneyConnector`, `CeltiisConnector`, `MtnMomoConnector`) : au
+  minimum avec `Http::fake()` pour couvrir succès / 409 idempotent / 4xx / 5xx retryable.
+
+### 🟠 M3 — Décision d'architecture à valider avec le boss
+
+La clé privée Ed25519 n'est jamais liée à un compte utilisateur côté serveur (design
+assumé : sécurité vs traçabilité). À trancher avant de toucher au schéma.
+
+### 🟡 Bonus repéré hors audit initial (à ne pas oublier avant prod)
+
+`config/cors.php` a `allowed_origins => ['*']`, avec un commentaire qui recommande déjà
+de le restreindre en prod.
+
+### ✅ Déjà fait (pour info)
+
+- Import inutilisé supprimé de `QrCryptoService.php`.
+- Scope mort supprimé : `MerchantQrController::history()` utilise `OfflineQrCode::forMerchant($userId)`.
+- Alpine.js pinné en `3.14.8`. Tailwind Play CDN : limite technique documentée (build
+  compilée recommandée avant prod).
+- Middleware `IdempotencyMiddleware` : alias réactivé (il existait déjà dans le package
+  partagé `fripay-common`, l'audit s'était trompé en disant qu'il fallait le créer).
+
+**Prochaine étape : le second doit se concentrer uniquement sur B1 (tests PHPUnit).**
+Tout le reste des 17 autres points de l'audit est clos et vérifié dans le code.

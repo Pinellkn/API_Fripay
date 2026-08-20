@@ -26,3 +26,9 @@ Schedule::command('transfers:process-pending')
     ->everyMinute()
     ->withoutOverlapping()
     ->onOneServer();
+
+// Purge des QR codes expirés + réconciliation hors-ligne (toutes les 6 heures)
+Schedule::command('reconcile:offline-qr')
+    ->everySixHours()
+    ->withoutOverlapping()
+    ->onOneServer();

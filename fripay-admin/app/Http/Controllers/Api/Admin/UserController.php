@@ -18,17 +18,24 @@ class UserController extends Controller
     {
         $query = User::query();
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('phone_number', 'like', "%{$search}%")
-                  ->orWhere('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%");
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+
+            // Limiter la longueur de la recherche
+            $search = mb_substr($search, 0, 100);
+
+            // Échapper les caractères LIKE (% et _) pour éviter les patterns inattendus
+            $escapedSearch = addcslashes($search, '%_');
+
+            $query->where(function ($q) use ($escapedSearch) {
+                $q->where('phone_number', 'like', "%{$escapedSearch}%")
+                  ->orWhere('first_name', 'like', "%{$escapedSearch}%")
+                  ->orWhere('last_name', 'like', "%{$escapedSearch}%");
             });
         }
 
-        if ($request->has('status')) {
-            $query->where('status', $request->status);
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
         }
 
         $perPage = min((int) $request->get('size', 20), 100);

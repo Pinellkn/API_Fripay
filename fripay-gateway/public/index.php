@@ -12,7 +12,7 @@
  *  - Logging structurÃ© (JSON) avec rotation automatique
  *  - Gestion des erreurs normalisÃ©e (RFC 7807)
  *  - Forward CORS, Authorization, Idempotency-Key, X-Request-Id
- *  - Endpoint de monitoring interne : GET /__gateway/status
+ *  - Endpoint de monitoring interne : GET /__gateway/status (IP whitelist)
  * ============================================================================
  */
 
@@ -29,8 +29,9 @@ $config = require __DIR__ . '/../config/gateway.php';
 
 // --- Initialisation des composants ---
 $logger         = new LogManager($config['logging']);
-$rateLimiter    = new RateLimiter($config['rate_limiting']);
-$circuitBreaker = new CircuitBreaker($config['circuit_breaker']);
+$storageConfig  = $config['storage'] ?? ['driver' => 'file'];
+$rateLimiter    = new RateLimiter($config['rate_limiting'], $storageConfig);
+$circuitBreaker = new CircuitBreaker($config['circuit_breaker'], $storageConfig);
 
 // --- Identification du client ---
 $clientIp   = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
@@ -46,8 +47,24 @@ if ($method === 'OPTIONS') {
     exit;
 }
 
-// --- Endpoint de monitoring interne ---
+// --- Endpoint de monitoring interne (IP whitelist) ---
 if ($path === '/__gateway/status' && $method === 'GET') {
+    $allowedIps = $config['monitoring']['allowed_ips'] ?? ['127.0.0.1', '::1'];
+
+    if (!in_array($clientIp, $allowedIps, true)) {
+        sendCorsHeaders($config['cors'], $requestId);
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'type'       => 'FORBIDDEN',
+            'title'      => 'AccÃ¨s interdit',
+            'status'     => 403,
+            'detail'     => 'Endpoint rÃ©servÃ© Ã  l\'administration interne.',
+            'request_id' => $requestId,
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     sendCorsHeaders($config['cors'], $requestId);
     header('Content-Type: application/json; charset=utf-8');
 
@@ -204,10 +221,29 @@ function resolveServiceKey(string $path, array $services): ?string
 
 /**
  * Envoie les headers CORS.
+ *
+ * Access-Control-Allow-Origin accepte un seul origine ou '*'.
+ * Si FRIPAY_CORS_ORIGINS contient plusieurs origines, on vérifie
+ * que la requête provient d'une origine autorisée et on renvoie
+ * cette origine spécifique.
  */
 function sendCorsHeaders(array $corsConfig, string $requestId): void
 {
-    header('Access-Control-Allow-Origin: ' . implode(', ', $corsConfig['allowed_origins']));
+    $requestOrigin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    $allowedOrigins = $corsConfig['allowed_origins'];
+
+    // Si '*' est dans la liste, on l'utilise directement
+    if (in_array('*', $allowedOrigins, true)) {
+        header('Access-Control-Allow-Origin: *');
+    } elseif (!empty($requestOrigin) && in_array($requestOrigin, $allowedOrigins, true)) {
+        // Répondre avec l'origine spécifique du client (pas la liste entière)
+        header('Access-Control-Allow-Origin: ' . $requestOrigin);
+        header('Vary: Origin');
+    } elseif (count($allowedOrigins) === 1) {
+        // Une seule origine autorisée
+        header('Access-Control-Allow-Origin: ' . reset($allowedOrigins));
+    }
+
     header('Access-Control-Allow-Methods: ' . implode(', ', $corsConfig['allowed_methods']));
     header('Access-Control-Allow-Headers: ' . implode(', ', $corsConfig['allowed_headers']));
     header('Access-Control-Max-Age: ' . $corsConfig['max_age']);

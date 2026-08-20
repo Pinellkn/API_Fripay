@@ -23,7 +23,7 @@ return [
         'payments' => [
             'name'         => 'Payments Service',
             'base_url'     => 'http://127.0.0.1:8001',
-            'routes'       => ['/api/v1/transfers', '/api/v1/webhooks', '/api/v1/webhooks/'],
+            'routes'       => ['/api/v1/transfers', '/api/v1/webhooks', '/api/v1/webhooks/', '/api/v1/qr/'],
             'timeout'      => 30,
             'health_check' => '/up',
         ],
@@ -33,6 +33,23 @@ return [
             'routes'       => ['/api/v1/admin'],
             'timeout'      => 15,
             'health_check' => '/up',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Stockage (Redis ou fichier)
+    |--------------------------------------------------------------------------
+    | driver : 'file' (défaut) ou 'redis'
+    | En multi-instance, utiliser 'redis' pour partager l'état entre instances.
+    */
+    'storage' => [
+        'driver' => env('GATEWAY_STORAGE_DRIVER', 'file'),
+        'redis' => [
+            'host'     => env('REDIS_HOST', '127.0.0.1'),
+            'port'     => (int) env('REDIS_PORT', 6379),
+            'password' => env('REDIS_PASSWORD', null),
+            'database' => (int) env('REDIS_DB', 0),
         ],
     ],
 
@@ -68,6 +85,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Monitoring
+    |--------------------------------------------------------------------------
+    | Accès restreint aux IP internes pour l'endpoint /__gateway/status
+    */
+    'monitoring' => [
+        'allowed_ips' => ['127.0.0.1', '::1'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Logging
     |--------------------------------------------------------------------------
     */
@@ -83,7 +110,7 @@ return [
     |--------------------------------------------------------------------------
     */
     'cors' => [
-        'allowed_origins' => ['*'],
+        'allowed_origins' => array_filter(explode(',', env('FRIPAY_CORS_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000'))),
         'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
         'allowed_headers' => [
             'Content-Type', 'Authorization', 'Idempotency-Key',

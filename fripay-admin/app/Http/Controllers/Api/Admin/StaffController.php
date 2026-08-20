@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\StaffUser;
 use App\Models\Role;
 use Illuminate\Http\JsonResponse;
@@ -49,6 +50,21 @@ class StaffController extends Controller
             'last_name' => $data['last_name'],
             'role_id' => $data['role_id'],
             'active' => true,
+        ]);
+
+        AuditLog::create([
+            'actor_type' => 'staff',
+            'actor_id' => (string) $request->user()->id,
+            'action' => 'staff.created',
+            'entity_type' => 'staff_user',
+            'entity_id' => (string) $staff->id,
+            'payload' => [
+                'email' => $data['email'],
+                'first_name' => $data['first_name'],
+                'last_name' => $data['last_name'],
+                'role_id' => $data['role_id'],
+            ],
+            'ip_address' => $request->ip(),
         ]);
 
         return response()->json([

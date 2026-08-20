@@ -20,7 +20,7 @@ class CorridorRequest extends BaseApiRequest
             'fee_value' => 'required|numeric|min:0',
             'fee_cap' => 'nullable|numeric|min:0',
             'min_amount' => 'required|numeric|min:0',
-            'max_amount' => 'required|numeric|min:0',
+            'max_amount' => 'required|numeric|min:0|gte:min_amount',
             'active' => 'boolean',
         ];
     }

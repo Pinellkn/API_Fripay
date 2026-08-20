@@ -16,11 +16,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
 
-    // --- Authentification (publique) ---
-    Route::post('/auth/register', [AuthController::class, 'register']);
-    Route::post('/auth/verify-otp', [AuthController::class, 'verifyOtp']);
-    Route::post('/auth/login', [AuthController::class, 'login']);
-    Route::post('/auth/refresh-token', [AuthController::class, 'refreshToken']);
+    // --- Authentification (publique + rate limiting) ---
+    Route::middleware('throttle:auth')->group(function () {
+        Route::post('/auth/register', [AuthController::class, 'register']);
+        Route::post('/auth/verify-otp', [AuthController::class, 'verifyOtp']);
+        Route::post('/auth/login', [AuthController::class, 'login']);
+        Route::post('/auth/refresh-token', [AuthController::class, 'refreshToken']);
+    });
 
     // --- Routes protégées ---
     Route::middleware('auth:sanctum')->group(function () {

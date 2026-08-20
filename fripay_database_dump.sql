@@ -837,7 +837,7 @@ COPY public.operators (id, code, name, country_code, active, created_at, updated
 --
 
 COPY public.otp_codes (id, phone_number, code_hash, purpose, attempts, consumed, expires_at, created_at, updated_at) FROM stdin;
-019f7f47-a5e2-7151-896e-dfa1712d12f4	+22997000001	$2y$12$Yof0BzJ1kkirqAcAmy/7Be5syVMWPNSuR2jnlifyA0feTRh0Tg/6G	registration	0	f	2026-07-20 11:32:09	2026-07-20 11:27:09	2026-07-20 11:27:09
+019f7f47-a5e2-7151-896e-dfa1712d12f4	+22997000001	HASH_ANONYMIZED_001	registration	0	f	2026-07-20 11:32:09	2026-07-20 11:27:09	2026-07-20 11:27:09
 \.
 
 
@@ -929,7 +929,7 @@ COPY public.roles (id, name, description, created_at, updated_at) FROM stdin;
 --
 
 COPY public.staff_users (id, email, password_hash, first_name, last_name, role_id, active, created_at, updated_at) FROM stdin;
-1	admin@fripay.bj	$2y$12$F6SPrM7TOYYa1Xw.DkHx.e5tfaqDejKP124eOsekmXhnWYhA6vWVW	Super	Admin	1	t	2026-07-20 10:57:08	2026-07-20 10:57:08
+1	admin@fripay.bj	HASH_ANONYMIZED_002	Super	Admin	1	t	2026-07-20 10:57:08	2026-07-20 10:57:08
 \.
 
 

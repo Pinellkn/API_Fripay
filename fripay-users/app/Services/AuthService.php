@@ -43,6 +43,7 @@ class AuthService
         AuthSession::create([
             'user_id' => $user->id,
             'refresh_token_hash' => Hash::make($refreshToken),
+            'token_fingerprint' => hash('sha256', substr($refreshToken, 0, 32)),
             'device_info' => json_encode($deviceInfo),
             'ip_address' => request()->ip(),
             'revoked' => false,
@@ -60,11 +61,19 @@ class AuthService
 
     /**
      * Refresh tokens using a valid refresh token.
+     *
+     * Optimisation : lookup par empreinte token (sha256 des 32 premiers
+     * caractères) pour éviter de charger toutes les sessions actives.
+     * L'empreinte est stockée en clair et indexée pour une recherche O(1).
+     * Hash::check est appelé uniquement sur le sous-ensemble correspondant.
      */
     public function refreshTokens(string $refreshToken): ?array
     {
+        $fingerprint = hash('sha256', substr($refreshToken, 0, 32));
+
         $sessions = AuthSession::where('revoked', false)
             ->where('expires_at', '>', now())
+            ->where('token_fingerprint', $fingerprint)
             ->get();
 
         foreach ($sessions as $session) {

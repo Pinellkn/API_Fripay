@@ -68,6 +68,9 @@ class CorridorController extends Controller
     {
         $corridor = Corridor::findOrFail($corridorId);
 
+        // Snapshot de l'état avant modification pour l'audit trail
+        $previousState = $corridor->toArray();
+
         $data = $request->validate([
             'rail' => 'sometimes|string|in:pispi,aggregator,manual',
             'aggregator_provider' => 'nullable|string|max:50',
@@ -88,7 +91,10 @@ class CorridorController extends Controller
             'action' => 'corridor.updated',
             'entity_type' => 'corridor',
             'entity_id' => (string) $corridor->id,
-            'payload' => $data,
+            'payload' => [
+                'previous' => $previousState,
+                'changes' => $data,
+            ],
             'ip_address' => $request->ip(),
         ]);
 

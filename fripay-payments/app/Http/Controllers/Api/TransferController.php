@@ -116,9 +116,13 @@ class TransferController extends Controller
             $query->where('status', $request->status);
         }
 
+        // Whitelist des colonnes autorisees pour le tri (anti-injection SQL)
+        $allowedSortColumns = ['initiated_at', 'amount', 'status', 'completed_at'];
+
         $sort = $request->get('sort', '-initiated_at');
         $direction = str_starts_with($sort, '-') ? 'desc' : 'asc';
         $column = ltrim($sort, '-');
+        $column = in_array($column, $allowedSortColumns, true) ? $column : 'initiated_at';
         $query->orderBy($column, $direction);
 
         $perPage = min((int) $request->get('size', 20), 100);
